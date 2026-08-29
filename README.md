@@ -95,7 +95,11 @@ O PostgreSQL utiliza um Parameter Group `postgres17` customizado com:
 
 A porta 5432 é liberada preferencialmente para o Security Group da aplicação via `application_security_group_id`.
 
-Enquanto esse SG não estiver exposto como output da infraestrutura principal, o módulo utiliza um fallback para o CIDR da VPC. Esse comportamento é temporário e está registrado na documentação arquitetural.
+Quando `application_security_group_id` é informado, o acesso ao PostgreSQL é permitido somente a partir do Security Group da aplicação.
+
+Quando esse identificador não está disponível, o módulo permite utilizar temporariamente o CIDR da VPC como origem para conexões na porta TCP 5432.
+
+No ambiente acadêmico atual, é utilizado o CIDR `172.31.0.0/16` como fallback. Essa configuração deve ser restringida em um ambiente produtivo.
 
 ## GitHub Actions
 
@@ -125,11 +129,37 @@ terraform apply
 
 ### Autenticação AWS
 
-Os workflows usam OIDC. Configure no GitHub o secret:
+O ambiente acadêmico utiliza credenciais temporárias fornecidas pelo AWS Academy.
 
-- `AWS_ROLE_ARN`: ARN da IAM Role que pode ser assumida pelo repositório.
+Os workflows do GitHub Actions utilizam os seguintes GitHub Actions Secrets:
 
-Não é necessário manter `AWS_ACCESS_KEY_ID` ou `AWS_SECRET_ACCESS_KEY` no GitHub.
+- `AWS_ACCESS_KEY_ID`;
+- `AWS_SECRET_ACCESS_KEY`;
+- `AWS_SESSION_TOKEN`.
+
+Esses valores devem ser obtidos a partir da sessão atual do AWS Academy e cadastrados em:
+
+**Settings > Secrets and variables > Actions**
+
+As credenciais do AWS Academy são temporárias e expiram periodicamente. Quando uma nova sessão do laboratório é iniciada, pode ser necessário atualizar esses três secrets no GitHub.
+
+Nenhuma credencial AWS deve ser adicionada diretamente ao código-fonte, arquivos `.tf`, `terraform.tfvars` ou documentação.
+
+Em um ambiente corporativo ou produtivo, recomenda-se substituir credenciais temporárias por autenticação federada via GitHub OIDC e IAM Role.
+
+### Ambiente AWS Academy
+
+A infraestrutura atual é executada em uma conta temporária do AWS Academy.
+
+Características importantes desse ambiente:
+
+- região utilizada: `us-east-1`;
+- as credenciais AWS possuem tempo de expiração;
+- recursos disponíveis dependem das permissões associadas ao `LabRole`;
+- a VPC e as subnets padrão da conta são reutilizadas;
+- o backend S3 foi criado especificamente para armazenar o state deste projeto.
+
+Devido às limitações naturais de um ambiente acadêmico, algumas decisões priorizam simplicidade e controle de custos.
 
 ## Documentação
 
