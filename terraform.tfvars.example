@@ -1,0 +1,24 @@
+aws_region   = "us-east-1"
+project_name = "numberone"
+environment  = "academy"
+
+vpc_id = "vpc-0764754eefab31378"
+subnet_ids = [
+  "subnet-08536cbe9022fc827", # us-east-1d
+  "subnet-0565742ca2b415fd0", # us-east-1f
+  "subnet-072fcecdd991f7961", # us-east-1b
+  "subnet-0fdb10a97852b2ede"  # us-east-1c
+]
+
+db_name                  = "numberone"
+db_username              = "numberone_admin"
+db_instance_class        = "db.t4g.micro"
+db_allocated_storage     = 20
+db_max_allocated_storage = 100
+
+# Quando existir um Security Group da aplicação, informe-o aqui.
+# Enquanto não houver aplicação/EKS nessa conta, o módulo usa o CIDR da VPC como fallback.
+application_security_group_id = null
+
+deletion_protection     = false
+backup_retention_period = 7

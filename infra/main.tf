@@ -11,7 +11,7 @@ module "rds" {
   instance_class        = var.db_instance_class
   allocated_storage     = var.db_allocated_storage
   backup_retention_days = var.backup_retention_days
-  deletion_protection  = var.deletion_protection
-  multi_az             = var.multi_az
-  tags                 = local.common_tags
+  deletion_protection   = var.deletion_protection
+  multi_az              = var.multi_az
+  tags                  = local.common_tags
 }
