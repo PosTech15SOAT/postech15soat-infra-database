@@ -15,39 +15,53 @@ Este repositório é responsável por:
 - pipelines GitHub Actions para plan e apply;
 - documentação arquitetural, RFCs, DER de autenticação e apoio ao vídeo.
 
-A VPC **não é criada neste repositório**. Ela é consumida do state da infraestrutura principal por `terraform_remote_state`.
+A VPC **não é criada neste repositório**. A infraestrutura utiliza uma VPC existente na conta AWS.
+
+O identificador da VPC e as subnets utilizadas pelo RDS são informados ao Terraform por variáveis, permitindo reutilizar a infraestrutura de rede existente sem duplicar recursos.
 
 ## Arquitetura
 
-O state atual da rede encontra-se, por padrão, em:
+A infraestrutura do banco utiliza recursos de rede já existentes na AWS.
 
-- bucket: `backend-terraform-numberone`
-- key: `infra/terraform.tfstate`
-- região: `us-east-1`
+No ambiente acadêmico utilizado atualmente:
 
-O state deste repositório utiliza uma chave própria:
+- região AWS: `us-east-1`;
+- VPC existente: `vpc-0764754eefab31378`;
+- CIDR da VPC: `172.31.0.0/16`;
+- as subnets utilizadas pelo RDS são fornecidas através das variáveis Terraform;
+- nenhuma nova VPC é criada por este repositório.
 
-- bucket: `backend-terraform-numberone`
-- key: `infra-banco/terraform.tfstate`
+O state Terraform deste repositório é armazenado em um backend S3 independente:
 
-O fluxo completo está documentado em [docs/architecture/architecture.md](docs/architecture/architecture.md) e no [diagrama de componentes](docs/architecture/component-diagram.md).
+- bucket: `postech15soat-infra-banco-tfstate-777137014941`;
+- key: `infra-banco/terraform.tfstate`;
+- região: `us-east-1`;
+- versionamento habilitado no bucket;
+- bloqueio de acesso público habilitado.
+
+Essa separação permite que a infraestrutura do banco evolua de forma independente da infraestrutura da aplicação.
 
 ## Pré-requisitos
 
 - Terraform >= 1.7;
-- conta AWS com permissão para RDS, EC2 Security Groups, Secrets Manager e leitura/escrita do backend S3;
-- infraestrutura principal previamente provisionada, expondo `vpc_id` e `private_subnet_ids`;
+- conta AWS com permissão para RDS, EC2 Security Groups, Secrets Manager e leitura/escrita no backend S3;
+- VPC existente na AWS;
+- pelo menos duas subnets disponíveis em zonas de disponibilidade distintas;
+- credenciais temporárias válidas do AWS Academy;
 - AWS CLI configurada para execução local, quando aplicável.
 
 ## Configuração local
 
-Copie o arquivo de exemplo:
+As principais variáveis de rede são:
 
-```bash
-cp terraform.tfvars.example terraform.tfvars
-```
+- `vpc_id`: identificador da VPC existente;
+- `subnet_ids`: subnets utilizadas para criação do DB Subnet Group;
+- `vpc_cidr`: CIDR utilizado como fallback temporário para acesso ao PostgreSQL;
+- `application_security_group_id`: Security Group da aplicação, quando disponível.
 
-Ajuste somente os valores necessários. **Não coloque senha do banco no arquivo**: a senha master é gerenciada automaticamente pelo RDS no AWS Secrets Manager.
+No ambiente AWS Academy atualmente utilizado, esses valores já estão exemplificados no arquivo `terraform.tfvars.example`.
+
+**Não coloque senha do banco no arquivo.** A senha master é gerenciada automaticamente pelo Amazon RDS através do AWS Secrets Manager.
 
 ## Execução
 
@@ -87,18 +101,27 @@ Enquanto esse SG não estiver exposto como output da infraestrutura principal, o
 
 ### Pull Request
 
-`.github/workflows/terraform-plan.yml` executa:
+`.github/workflows/terraform-plan.yml` é executado em Pull Requests destinados às branches `develop` e `main`.
+
+O workflow executa:
 
 - `terraform init`;
 - `terraform fmt -check -recursive`;
 - `terraform validate`;
 - `terraform plan`.
 
+O fluxo de desenvolvimento adotado é:
+
+`feature/*` → `develop` → `main`
+
+Dessa forma, alterações de infraestrutura são validadas antes da promoção para os ambientes de integração e principal.
+
 ### Main
 
-`.github/workflows/terraform-apply.yml` executa o `terraform apply` no GitHub Environment `production`.
+Quando uma alteração é integrada à branch `main`, `.github/workflows/terraform-apply.yml` executa o provisionamento da infraestrutura através de:
 
-Para que a aprovação funcione, configure em **Settings > Environments > production** um reviewer obrigatório.
+```bash
+terraform apply
 
 ### Autenticação AWS
 
