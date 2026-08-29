@@ -124,8 +124,9 @@ Dessa forma, alterações de infraestrutura são validadas antes da promoção p
 
 Quando uma alteração é integrada à branch `main`, `.github/workflows/terraform-apply.yml` executa o provisionamento da infraestrutura através de:
 
+```md
 ```bash
-terraform apply
+terraform apply```
 
 ### Autenticação AWS
 
