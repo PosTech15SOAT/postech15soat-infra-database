@@ -92,14 +92,14 @@ resource "aws_db_instance" "this" {
   vpc_security_group_ids = [aws_security_group.this.id]
   parameter_group_name   = aws_db_parameter_group.this.name
 
-  publicly_accessible         = false
-  multi_az                    = false
-  auto_minor_version_upgrade  = true
-  backup_retention_period     = var.backup_retention_period
-  deletion_protection         = var.deletion_protection
-  skip_final_snapshot         = true
-  copy_tags_to_snapshot       = true
-  apply_immediately           = true
+  publicly_accessible        = false
+  multi_az                   = false
+  auto_minor_version_upgrade = true
+  backup_retention_period    = var.backup_retention_period
+  deletion_protection        = var.deletion_protection
+  skip_final_snapshot        = true
+  copy_tags_to_snapshot      = true
+  apply_immediately          = true
 
   tags = {
     Name = "${var.project_name}-${var.environment}-postgres"
