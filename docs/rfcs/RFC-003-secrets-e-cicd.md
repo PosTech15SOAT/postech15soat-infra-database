@@ -4,10 +4,7 @@
 Aceito
 
 ## Contexto
-Credenciais de banco e credenciais AWS não devem ser mantidas em arquivos versionados ou chaves estáticas no pipeline.
-
-## Decisão
-A senha master do PostgreSQL será gerenciada pelo próprio RDS no AWS Secrets Manager (`manage_master_user_password = true`). 
+Credenciais de banco e credenciais AWS não devem ser mantidas em arquivos versionados.
 
 ## Decisão
 
@@ -28,8 +25,11 @@ O fluxo de entrega é:
 
 As credenciais do AWS Academy possuem expiração e devem ser atualizadas no GitHub quando uma nova sessão do laboratório for iniciada.
 
+Em um ambiente produtivo real, recomenda-se substituir esse modelo por autenticação federada utilizando GitHub OIDC e IAM Role.
+
 ## Consequências
+
 - nenhuma senha de banco no repositório ou em `terraform.tfvars`;
-- ausência de Access Key/Secret Key AWS persistentes no GitHub;
-- trilha de auditoria de alterações via Pull Request e Actions;
-- necessidade de configurar uma IAM Role OIDC e o Environment `production` fora do Terraform deste repositório.
+- credenciais AWS do laboratório não são armazenadas no código-fonte;
+- trilha de auditoria das alterações através de Pull Requests e GitHub Actions;
+- necessidade de atualizar os GitHub Actions Secrets quando as credenciais temporárias do AWS Academy expirarem.
