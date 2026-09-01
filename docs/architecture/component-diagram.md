@@ -1,9 +1,5 @@
 # Diagrama de Componentes
 
-# Diagrama de Componentes
-
-# Diagrama de Componentes
-
 ```mermaid
 flowchart LR
     DEV[Desenvolvedor] --> GH[GitHub Repository]
