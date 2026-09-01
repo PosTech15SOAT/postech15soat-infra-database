@@ -12,7 +12,8 @@ Apresentar de forma curta e demonstrável a separação da infraestrutura do ban
 ### 2. Nova arquitetura
 - Abrir `docs/architecture/component-diagram.md`.
 - Destacar que a VPC não foi duplicada.
-- Explicar o consumo de `vpc_id` e `private_subnet_ids` via remote state.
+- Explicar que `vpc_id` e `subnet_ids` são fornecidos ao Terraform por variáveis.
+- Mostrar que o state do banco é independente e armazenado em S3.
 
 ### 3. RDS e segurança
 - Abrir `modules/rds/main.tf`.
@@ -21,11 +22,13 @@ Apresentar de forma curta e demonstrável a separação da infraestrutura do ban
 - Explicar que a senha master é gerenciada pelo RDS no AWS Secrets Manager e não existe em `tfvars`.
 
 ### 4. CI/CD
-- Mostrar os workflows `terraform-plan.yml` e `terraform-apply.yml`.
-- Explicar PR -> fmt/validate/plan.
-- Explicar main -> apply com aprovação no Environment `production`.
-- Citar autenticação AWS por OIDC.
-
+- Mostrar `terraform-plan.yml` e `terraform-apply.yml`.
+- Explicar o fluxo `feature/* → develop → main`.
+- Explicar que Pull Requests executam `fmt`, `validate` e `plan`.
+- Explicar que a `main` executa o `apply`.
+- Informar que o AWS Academy utiliza credenciais temporárias cadastradas como GitHub Actions Secrets.
+- Citar OIDC apenas como recomendação para ambiente produtivo real.
+  
 ### 5. Arquitetura e RFCs
 - Mostrar rapidamente as três RFCs.
 - Explicar por que as decisões foram registradas e quais trade-offs foram assumidos para um ambiente acadêmico.
