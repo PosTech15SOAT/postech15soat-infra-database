@@ -28,7 +28,7 @@ Apresentar de forma curta e demonstrável a separação da infraestrutura do ban
 - Explicar que a `main` executa o `apply`.
 - Informar que o AWS Academy utiliza credenciais temporárias cadastradas como GitHub Actions Secrets.
 - Citar OIDC apenas como recomendação para ambiente produtivo real.
-  
+
 ### 5. Arquitetura e RFCs
 - Mostrar rapidamente as três RFCs.
 - Explicar por que as decisões foram registradas e quais trade-offs foram assumidos para um ambiente acadêmico.
