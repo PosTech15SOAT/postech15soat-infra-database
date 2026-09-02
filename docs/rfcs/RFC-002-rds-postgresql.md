@@ -15,7 +15,7 @@ O Parameter Group estabelece:
 - log de statements cuja duração ultrapasse 1000 ms.
 
 ## Segurança
-O banco não é público. O acesso é permitido preferencialmente pelo Security Group da aplicação. Enquanto esse SG não estiver exposto como contrato entre states, o módulo possui fallback para o CIDR da VPC, explicitamente tratado como temporário.
+O banco não é público. O acesso é permitido preferencialmente pelo Security Group da aplicação. Enquanto o Security Group da aplicação não estiver disponível no ambiente, o módulo utiliza temporariamente o CIDR da VPC como fallback.
 
 ## Trade-offs
 Single-AZ e classe `db.t4g.micro` foram escolhidos para o ambiente acadêmico por custo. Uma implantação de produção deveria avaliar Multi-AZ, deletion protection, Performance Insights, CloudWatch alarms e política de snapshots finais.
