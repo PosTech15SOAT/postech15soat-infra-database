@@ -33,7 +33,7 @@ Este repositório é responsável por:
 
 A VPC **não é criada neste repositório**.
 
-A infraestrutura utiliza uma VPC e subnets já existentes na conta AWS. Seus identificadores são fornecidos ao Terraform através de variáveis, evitando duplicação dos recursos de rede.
+A infraestrutura consome automaticamente a VPC, as subnets privadas e o Security Group do EKS a partir do remote state do repositório `postech15soat-infra-cloud`.
 
 ---
 
@@ -70,9 +70,8 @@ Terraform
 No ambiente acadêmico utilizado atualmente:
 
 - região AWS: `us-east-1`;
-- VPC existente: `vpc-0764754eefab31378`;
-- CIDR da VPC: `172.31.0.0/16`;
-- subnets existentes são fornecidas através de variáveis Terraform;
+- VPC e subnets privadas são obtidas do state `cloud/terraform.tfstate`;
+- o Security Group do EKS é autorizado diretamente na porta `5432`;
 - nenhuma nova VPC é criada pelo projeto.
 
 O diagrama completo está disponível em:
@@ -154,23 +153,13 @@ A porta utilizada pelo PostgreSQL é:
 TCP 5432
 ```
 
-O modelo preferencial permite acesso ao banco somente através do Security Group da aplicação informado pela variável:
+O acesso ao banco é permitido somente através do Security Group do EKS publicado pela infraestrutura cloud:
 
 ```text
-application_security_group_id
+eks_cluster_security_group_id
 ```
 
-Quando esse Security Group não está disponível, como ocorre atualmente no ambiente acadêmico, o módulo utiliza temporariamente o CIDR da própria VPC como origem.
-
-No ambiente atual:
-
-```text
-172.31.0.0/16
-```
-
-Esse fallback permite comunicação com recursos localizados dentro da VPC sem tornar o banco publicamente acessível.
-
-Em um ambiente produtivo, recomenda-se restringir o acesso exclusivamente ao Security Group da aplicação.
+Não existe fallback para todo o CIDR da VPC quando o state compartilhado está sendo utilizado.
 
 ---
 
@@ -181,8 +170,8 @@ O state Terraform desta infraestrutura é armazenado separadamente no Amazon S3.
 Configuração atual:
 
 ```text
-Bucket: postech15soat-infra-banco-tfstate-777137014941
-Key:    infra-banco/terraform.tfstate
+Bucket: configurado pela variável de ambiente GitHub `TF_STATE_BUCKET`
+Key:    database/terraform.tfstate
 Region: us-east-1
 ```
 
@@ -201,9 +190,8 @@ As principais variáveis utilizadas são:
 
 ### Rede
 
-- `vpc_id`: identificador da VPC existente;
-- `subnet_ids`: lista de subnets utilizadas pelo DB Subnet Group;
-- `application_security_group_id`: Security Group da aplicação autorizado a acessar o PostgreSQL, quando disponível.
+- `cloud_state_bucket`: bucket que contém o state da infraestrutura cloud;
+- `cloud_state_key`: chave do state cloud, por padrão `cloud/terraform.tfstate`.
 
 ### Banco
 
@@ -238,24 +226,15 @@ O ambiente acadêmico utiliza atualmente:
 ```hcl
 aws_region   = "us-east-1"
 project_name = "numberone"
-environment  = "academy"
+environment  = "lab"
 
-vpc_id = "vpc-0764754eefab31378"
-
-subnet_ids = [
-  "subnet-08536cbe9022fc827",
-  "subnet-0565742ca2b415fd0",
-  "subnet-072fcecdd991f7961",
-  "subnet-0fdb10a97852b2ede"
-]
+cloud_state_key = "cloud/terraform.tfstate"
 
 db_name                  = "numberone"
 db_username              = "numberone_admin"
 db_instance_class        = "db.t4g.micro"
 db_allocated_storage     = 20
 db_max_allocated_storage = 100
-
-application_security_group_id = null
 
 deletion_protection     = false
 backup_retention_period = 7
@@ -511,7 +490,7 @@ Algumas configurações foram escolhidas especificamente para o contexto acadêm
 - `deletion_protection = false`;
 - `skip_final_snapshot = true`;
 - credenciais temporárias do AWS Academy;
-- fallback temporário utilizando o CIDR da VPC quando o Security Group da aplicação não está disponível.
+- acesso ao PostgreSQL restrito ao Security Group do EKS compartilhado.
 
 Essas decisões priorizam simplicidade, compatibilidade com o AWS Academy e controle de recursos.
 
