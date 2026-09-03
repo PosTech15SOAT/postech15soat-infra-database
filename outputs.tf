@@ -28,3 +28,18 @@ output "parameter_group_name" {
   description = "Parameter Group customizado utilizado pelo PostgreSQL."
   value       = module.rds.parameter_group_name
 }
+
+output "cloud_vpc_id" {
+  description = "VPC compartilhada consumida do state da infraestrutura cloud."
+  value       = data.terraform_remote_state.cloud.outputs.vpc_id
+}
+
+output "cloud_private_subnet_ids" {
+  description = "Subnets privadas compartilhadas consumidas do state da infraestrutura cloud."
+  value       = data.terraform_remote_state.cloud.outputs.private_subnet_ids
+}
+
+output "application_security_group_id" {
+  description = "Security Group do EKS autorizado a acessar o PostgreSQL."
+  value       = data.terraform_remote_state.cloud.outputs.eks_cluster_security_group_id
+}
