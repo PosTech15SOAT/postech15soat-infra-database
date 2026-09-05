@@ -378,7 +378,9 @@ executa o provisionamento através de:
 terraform apply -input=false -auto-approve -var-file=terraform.tfvars.example
 ```
 
-Assim, o `terraform plan` é utilizado durante a validação dos Pull Requests e o `terraform apply` ocorre após a promoção da infraestrutura para `main`.
+Assim, commits e Pull Requests em `develop` validam o Terraform sem aplicar
+infraestrutura. O `terraform plan` e utilizado durante a validacao dos Pull
+Requests, e o `terraform apply` ocorre somente apos a promocao para `main`.
 
 ---
 
