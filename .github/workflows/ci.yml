@@ -42,3 +42,17 @@ jobs:
           else
             git diff --check "$BASE_SHA" "$HEAD_SHA"
           fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+
+      - name: Terraform Init
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform Format
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Validate
+        run: terraform validate
