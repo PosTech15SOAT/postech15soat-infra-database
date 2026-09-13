@@ -1,15 +1,32 @@
 # Infraestrutura do banco
 
-O diretório `infra/` cria uma instância PostgreSQL 17 no Amazon RDS, um DB Subnet Group e um Security Group dedicado.
+O root Terraform atual do repositório fica na raiz e usa:
 
-## Pré-requisitos
+- `backend.tf`;
+- `main.tf`;
+- `variables.tf`;
+- `outputs.tf`;
+- `providers.tf`;
+- `versions.tf`;
+- `modules/rds/`;
+- `terraform.tfvars.example`.
 
-- Terraform 1.6 ou superior;
+Ele cria uma instância PostgreSQL 17 no Amazon RDS, um DB Subnet Group, um Security Group dedicado, um Parameter Group customizado e usa senha master gerenciada pelo RDS no AWS Secrets Manager.
+
+O diretório `infra/` contém uma estrutura Terraform anterior/legada. Ela foi preservada no repositório, mas não representa o fluxo atual dos workflows de CI/CD.
+
+## Pré-requisitos do root atual
+
+- Terraform 1.7 ou superior;
 - credenciais AWS configuradas;
-- uma VPC existente;
-- duas ou mais subnets privadas em zonas de disponibilidade distintas;
-- CIDRs autorizados a alcançar a porta 5432.
+- state do `postech15soat-infra-cloud` disponível no bucket S3;
+- variável `TF_STATE_BUCKET` configurada no GitHub Actions;
+- credenciais temporárias do AWS Academy cadastradas no GitHub Actions.
 
-Copie `terraform.tfvars.example` para `terraform.tfvars` e preencha valores reais. A senha é sensível e não deve ser gravada no repositório. Para automação, prefira `TF_VAR_db_password`.
+O root atual consome do remote state cloud:
 
-O banco é privado, criptografado, possui backups configuráveis e proteção contra exclusão habilitada por padrão. O output `db_endpoint` fornece o host sem expor credenciais.
+- `vpc_id`;
+- `private_subnet_ids`;
+- `eks_cluster_security_group_id`.
+
+Não configure senha do banco em `terraform.tfvars`. A senha master é gerenciada por `manage_master_user_password = true` e armazenada pelo RDS no AWS Secrets Manager.

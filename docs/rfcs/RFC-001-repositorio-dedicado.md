@@ -10,7 +10,7 @@ A infraestrutura de aplicação, cluster e banco estava concentrada no mesmo pro
 
 Manter a infraestrutura do banco em um repositório dedicado, com state Terraform independente.
 
-A VPC não será duplicada. O identificador da VPC e das subnets existentes serão fornecidos à infraestrutura do banco através de variáveis Terraform.
+A VPC não será duplicada. O identificador da VPC, as subnets privadas e o Security Group do EKS serão consumidos do remote state do repositório `postech15soat-infra-cloud`.
 
 ## Consequências
 
@@ -22,8 +22,8 @@ A VPC não será duplicada. O identificador da VPC e das subnets existentes ser�
 
 ### Negativas
 
-- necessidade de fornecer corretamente os identificadores da infraestrutura de rede existente;
+- necessidade de manter o contrato de outputs do remote state da infraestrutura cloud;
 - necessidade de manter o contrato de conectividade entre aplicação e banco.
 
 ## Evolução
-Recomenda-se futuramente separar a rede compartilhada em state/repositório próprio, consumido tanto pela aplicação quanto pelo banco.
+Avaliar futuramente políticas formais de versionamento de contrato entre os states de infraestrutura, caso mais repositórios passem a consumir outputs compartilhados.
