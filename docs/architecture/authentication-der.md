@@ -1,6 +1,8 @@
-# DER — Autenticação
+# DER — Autenticação Administrativa
 
-O esquema atual do `PosTech15SOAT-V2` possui uma entidade persistente específica para autenticação administrativa: `admin_users`. A tabela armazena somente o hash da senha, nunca a senha em texto puro.
+Este documento representa somente o contexto de autenticação administrativa do NumberOne. Ele não é o DER completo da solução.
+
+O esquema atual possui uma entidade persistente específica para autenticação administrativa: `admin_users`. A tabela armazena somente o hash da senha, nunca a senha em texto puro.
 
 ```mermaid
 erDiagram

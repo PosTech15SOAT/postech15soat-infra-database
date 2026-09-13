@@ -1,231 +1,117 @@
-# PosTech15SOAT — Infraestrutura do Banco
+# NumberOne — Infraestrutura do Banco
 
-Infraestrutura como código do banco PostgreSQL do projeto **PosTech15SOAT**, provisionada na AWS utilizando Terraform.
+Infraestrutura como código do banco PostgreSQL do projeto **NumberOne**, desenvolvida para o Tech Challenge Fase 3 da FIAP.
 
-## Objetivo
+Este repositório concentra o provisionamento do Amazon RDS PostgreSQL e a documentação relacionada à infraestrutura do banco. A aplicação principal, autenticação, rede base, EKS, API Gateway e governança permanecem em seus respectivos repositórios.
 
-Este repositório concentra a infraestrutura necessária para execução do banco de dados PostgreSQL do projeto PosTech15SOAT.
+## 📌 Visão Geral
 
-A separação da infraestrutura do banco em um repositório dedicado permite:
-
-- ciclo de vida independente do banco de dados;
-- menor acoplamento com a infraestrutura da aplicação;
-- controle das alterações através de Pull Requests;
-- automação do provisionamento através do GitHub Actions;
-- state Terraform independente;
-- documentação das decisões arquiteturais através de RFCs.
-
-## Escopo
-
-Este repositório é responsável por:
+Responsabilidades deste repositório:
 
 - Amazon RDS for PostgreSQL;
-- DB Subnet Group utilizando subnets existentes;
+- DB Subnet Group com subnets privadas vindas do `postech15soat-infra-cloud`;
 - Security Group dedicado ao banco;
 - DB Parameter Group customizado;
-- credencial master gerenciada pelo Amazon RDS através do AWS Secrets Manager;
-- state Terraform independente armazenado no Amazon S3;
-- pipelines GitHub Actions para validação, plan e apply;
-- documentação arquitetural;
-- RFCs;
-- DER de autenticação;
-- roteiro de apoio ao vídeo da entrega.
+- senha master gerenciada pelo Amazon RDS no AWS Secrets Manager;
+- state Terraform próprio para banco;
+- remote state para consumir dados da infraestrutura cloud;
+- CI/CD Terraform com GitHub Actions;
+- documentação arquitetural específica do banco;
+- documentação de modelo de dados disponível no repositório.
 
-A VPC **não é criada neste repositório**.
+A VPC, subnets, EKS, ECR e infraestrutura cloud base não são criados aqui. Esses recursos pertencem ao repositório `postech15soat-infra-cloud`.
 
-A infraestrutura consome automaticamente a VPC, as subnets privadas e o Security Group do EKS a partir do remote state do repositório `postech15soat-infra-cloud`.
+## 🏗️ Arquitetura
 
----
-
-## Arquitetura
-
-A infraestrutura utiliza recursos de rede existentes na AWS e provisiona somente os componentes relacionados ao banco de dados.
-
-Fluxo simplificado:
+Fluxo integrado da solução NumberOne:
 
 ```text
-GitHub
-   |
-   v
-GitHub Actions
-   |
-   v
-Terraform
-   |
-   +------------------> Amazon S3
-   |                    Terraform State
-   |
-   +------------------> VPC / Subnets existentes
-   |
-   +------------------> Security Group
-   |
-   +------------------> Parameter Group
-   |
-   +------------------> Amazon RDS PostgreSQL
-                            |
-                            v
-                     AWS Secrets Manager
+Cliente / Insomnia
+    -> API Gateway HTTP API
+    -> Lambda Authorizer
+    -> VPC Link
+    -> NLB interno
+    -> EKS / Spring Boot
+    -> RDS PostgreSQL
 ```
 
-No ambiente acadêmico utilizado atualmente:
-
-- região AWS: `us-east-1`;
-- VPC e subnets privadas são obtidas do state `cloud/terraform.tfstate`;
-- o Security Group do EKS é autorizado diretamente na porta `5432`;
-- nenhuma nova VPC é criada pelo projeto.
-
-O diagrama completo está disponível em:
-
-`docs/architecture/component-diagram.md`
-
-Para conectar no RDS privado usando DBeaver ou ferramentas similares, use o tunel documentado em:
-
-`docs/rds-port-forward.md`
-
----
-
-## Amazon RDS PostgreSQL
-
-O banco é provisionado utilizando **Amazon RDS for PostgreSQL**.
-
-A configuração acadêmica atual utiliza:
-
-- PostgreSQL `17.5`;
-- instância `db.t4g.micro`;
-- armazenamento inicial de `20 GiB`;
-- autoscaling de armazenamento até `100 GiB`;
-- armazenamento `gp3`;
-- criptografia habilitada;
-- Single-AZ;
-- acesso público desabilitado;
-- backup automático por `7 dias`;
-- atualização automática de versões menores;
-- aplicação imediata das alterações;
-- senha master gerenciada pelo Amazon RDS.
-
-A configuração Single-AZ e a classe `db.t4g.micro` foram escolhidas devido ao contexto acadêmico e ao objetivo de reduzir consumo de recursos.
-
----
-
-## Parameter Group
-
-O PostgreSQL utiliza um DB Parameter Group customizado para PostgreSQL 17.
-
-Os seguintes parâmetros são configurados:
-
-| Parâmetro | Valor | Objetivo |
-|---|---:|---|
-| `rds.force_ssl` | `1` | Obriga conexões utilizando SSL/TLS |
-| `log_connections` | `1` | Registra novas conexões |
-| `log_disconnections` | `1` | Registra desconexões |
-| `log_min_duration_statement` | `1000` | Registra queries com duração superior a 1 segundo |
-
-Essas configurações aumentam a segurança e a observabilidade do banco.
-
----
-
-## Secrets Manager
-
-A senha master do PostgreSQL **não é definida em arquivos Terraform ou tfvars**.
-
-A instância utiliza:
-
-```hcl
-manage_master_user_password = true
-```
-
-Com essa configuração:
-
-1. o Amazon RDS gera a senha master;
-2. a credencial é armazenada automaticamente no AWS Secrets Manager;
-3. a senha não é persistida em `terraform.tfvars`;
-4. a senha não é armazenada no código-fonte;
-5. a senha não precisa ser cadastrada no GitHub Actions;
-6. o ARN do secret pode ser disponibilizado através dos outputs Terraform.
-
-Isso evita o armazenamento de credenciais do banco diretamente no repositório.
-
----
-
-## Segurança de rede
-
-O RDS possui um Security Group dedicado.
-
-A porta utilizada pelo PostgreSQL é:
+Escopo deste repositório dentro da arquitetura:
 
 ```text
-TCP 5432
+postech15soat-infra-cloud
+    -> VPC
+    -> private subnets
+    -> EKS cluster security group
+
+postech15soat-infra-database
+    -> DB Subnet Group
+    -> Security Group RDS
+    -> DB Parameter Group
+    -> Amazon RDS PostgreSQL
+    -> AWS Secrets Manager
 ```
 
-O acesso ao banco é permitido somente através do Security Group do EKS publicado pela infraestrutura cloud:
+O diagrama de componentes específico do banco está em [docs/architecture/component-diagram.md](docs/architecture/component-diagram.md).
+
+## 🧰 Tecnologias
+
+- Terraform `>= 1.7.0`;
+- AWS Provider `~> 5.0`;
+- Amazon RDS for PostgreSQL;
+- AWS Secrets Manager;
+- Amazon S3 para backend remoto do Terraform;
+- GitHub Actions;
+- Docker Compose para execução local do PostgreSQL.
+
+## 📁 Estrutura do Projeto
 
 ```text
-eks_cluster_security_group_id
+.
+├── .github/
+│   └── workflows/
+├── adapters/
+│   └── java/
+├── database/
+│   ├── migrations/
+│   └── seeds/
+├── docs/
+│   ├── architecture/
+│   └── rfcs/
+├── infra/
+├── modules/
+│   └── rds/
+├── backend.tf
+├── docker-compose.yml
+├── main.tf
+├── outputs.tf
+├── providers.tf
+├── terraform.tfvars.example
+├── variables.tf
+└── versions.tf
 ```
 
-Não existe fallback para todo o CIDR da VPC quando o state compartilhado está sendo utilizado.
+Diretórios de atenção:
 
----
+- `adapters/`: código Java de persistência preservado como referência/histórico dos adapters da aplicação; não é compilado por este repositório Terraform.
+- `database/`: contém SQL de schema inicial e seed para execução local/desenvolvimento; não altera o executor atual de migrations da aplicação.
+- `infra/`: estrutura Terraform anterior/legada, mantida no repositório, mas diferente do root atual usado pelos workflows.
+- `modules/rds/`: módulo Terraform atual do RDS usado pelo root module.
 
-## Terraform State
+## ✅ Pré-requisitos
 
-O state Terraform desta infraestrutura é armazenado separadamente no Amazon S3.
+- Terraform compatível com `>= 1.7.0`;
+- AWS CLI configurado para uso local, quando necessário;
+- acesso ao AWS Academy para o ambiente acadêmico;
+- permissões para RDS, EC2 Security Groups, Secrets Manager e S3 backend;
+- bucket S3 do state configurado em `TF_STATE_BUCKET`;
+- state do `postech15soat-infra-cloud` já disponível no mesmo bucket;
+- Docker, caso use o PostgreSQL local via `docker-compose.yml`.
 
-Configuração atual:
+## ⚙️ Configuração
 
-```text
-Bucket: configurado pela variável de ambiente GitHub `TF_STATE_BUCKET`
-Key:    database/terraform.tfstate
-Region: us-east-1
-```
+O exemplo de variáveis fica em [terraform.tfvars.example](terraform.tfvars.example).
 
-O bucket possui:
-
-- versionamento habilitado;
-- bloqueio de acesso público habilitado.
-
-O state independente permite que a infraestrutura do banco evolua sem depender do ciclo de vida do Terraform da aplicação.
-
----
-
-## Variáveis Terraform
-
-As principais variáveis utilizadas são:
-
-### Rede
-
-- `cloud_state_bucket`: bucket que contém o state da infraestrutura cloud;
-- `cloud_state_key`: chave do state cloud, por padrão `cloud/terraform.tfstate`.
-
-### Banco
-
-- `db_name`: nome inicial do banco;
-- `db_username`: usuário master;
-- `db_instance_class`: classe da instância RDS;
-- `db_allocated_storage`: armazenamento inicial;
-- `db_max_allocated_storage`: limite de autoscaling;
-- `backup_retention_period`: quantidade de dias de backup;
-- `deletion_protection`: habilita ou desabilita proteção contra exclusão.
-
-### Projeto
-
-- `aws_region`: região AWS;
-- `project_name`: nome base utilizado nos recursos;
-- `environment`: ambiente lógico da infraestrutura.
-
-Um exemplo de configuração está disponível em:
-
-```text
-terraform.tfvars.example
-```
-
-**Não adicione senha do banco nesse arquivo.**
-
----
-
-## Exemplo de configuração
-
-O ambiente acadêmico utiliza atualmente:
+Configuração acadêmica atual:
 
 ```hcl
 aws_region   = "us-east-1"
@@ -244,307 +130,236 @@ deletion_protection     = false
 backup_retention_period = 7
 ```
 
----
+`cloud_state_bucket` é informado pelo pipeline via `TF_VAR_cloud_state_bucket` e aponta para o bucket configurado em `TF_STATE_BUCKET`.
 
-## Pré-requisitos
+Não configure senha de banco em `terraform.tfvars`. A senha master é gerenciada pelo RDS com `manage_master_user_password = true`.
 
-Para executar a infraestrutura são necessários:
+## ▶️ Execução Local
 
-- Terraform `>= 1.7`;
-- conta AWS;
-- acesso ao ambiente AWS Academy para o contexto acadêmico;
-- permissões necessárias para RDS;
-- permissões para EC2 Security Groups;
-- permissões para Secrets Manager;
-- acesso de leitura e escrita ao backend S3;
-- VPC existente;
-- pelo menos duas subnets em zonas de disponibilidade distintas;
-- credenciais AWS válidas.
+Para subir um PostgreSQL local com o schema inicial:
 
-Para execução local, também é recomendado possuir AWS CLI configurada.
+```bash
+cp .env.example .env
+docker compose up -d
+```
 
----
+O `docker-compose.yml` monta [database/migrations/V1__create_initial_schema.sql](database/migrations/V1__create_initial_schema.sql) em `/docker-entrypoint-initdb.d/001_schema.sql`.
 
-## Execução local
+Para conectar localmente no RDS privado usando ferramentas como DBeaver ou DataGrip, consulte [docs/rds-port-forward.md](docs/rds-port-forward.md).
 
-Inicialize o Terraform:
+## 🧪 Validação da Infraestrutura
+
+Comandos mínimos de validação:
 
 ```bash
 terraform init
-```
-
-Verifique a formatação:
-
-```bash
 terraform fmt -check -recursive
-```
-
-Valide a configuração:
-
-```bash
 terraform validate
-```
-
-Gere o plano:
-
-```bash
 terraform plan -var-file=terraform.tfvars.example
 ```
 
-Para provisionar a infraestrutura manualmente:
+Para validação local sem backend remoto:
 
 ```bash
-terraform apply -var-file=terraform.tfvars.example
-```
-
-O provisionamento normal do projeto, entretanto, é realizado através do GitHub Actions.
-
----
-
-## CI/CD com GitHub Actions
-
-O repositório utiliza GitHub Actions para validar e provisionar a infraestrutura.
-
-O fluxo adotado é:
-
-```text
-feature/* → develop → main
-```
-
-Alterações não devem ser enviadas diretamente para `develop` ou `main`.
-
----
-
-### Pull Requests
-
-O workflow:
-
-```text
-.github/workflows/terraform-plan.yml
-```
-
-é executado em Pull Requests destinados às branches:
-
-- `develop`;
-- `main`.
-
-O pipeline executa:
-
-```text
-terraform init
-        ↓
-terraform fmt -check -recursive
-        ↓
+terraform init -backend=false
 terraform validate
-        ↓
-terraform plan
 ```
 
-Dessa forma, alterações de infraestrutura são verificadas antes de serem integradas.
+O provisionamento normal do ambiente acadêmico ocorre via GitHub Actions. Não execute `apply` ou `destroy` sem intenção explícita de alterar recursos.
 
----
+## 🔐 Segurança
 
-### Promoção para `main`
+Controles configurados no Terraform atual:
 
-Pull Requests destinados à `main` devem ter como origem a branch:
+- RDS sem acesso público (`publicly_accessible = false`);
+- DB Subnet Group com subnets privadas consumidas do remote state de cloud;
+- Security Group dedicado ao RDS;
+- acesso PostgreSQL na porta TCP `5432`;
+- origem autorizada pelo Security Group do EKS (`eks_cluster_security_group_id`);
+- armazenamento criptografado (`storage_encrypted = true`);
+- SSL/TLS obrigatório via `rds.force_ssl = 1`;
+- senha master gerenciada pelo Amazon RDS no AWS Secrets Manager;
+- ausência de senha de banco em `terraform.tfvars`, GitHub Actions Secrets ou código-fonte.
 
-```text
-develop
-```
+Parameter Group customizado:
 
-O workflow de validação de fluxo impede a promoção direta de uma branch `feature/*` para `main`.
+| Parâmetro | Valor | Objetivo |
+|---|---:|---|
+| `rds.force_ssl` | `1` | Obriga conexões SSL/TLS |
+| `log_connections` | `1` | Registra novas conexões |
+| `log_disconnections` | `1` | Registra desconexões |
+| `log_min_duration_statement` | `1000` | Registra consultas com duração superior a 1 segundo |
 
-O fluxo esperado é:
-
-```text
-feature/*
-    |
-    v
- develop
-    |
-    v
-  main
-```
-
----
-
-### Terraform Apply
-
-Quando uma alteração é integrada à branch `main`, o workflow:
-
-```text
-.github/workflows/terraform-apply.yml
-```
-
-executa o provisionamento através de:
-
-```bash
-terraform apply -input=false -auto-approve -var-file=terraform.tfvars.example
-```
-
-Assim, commits e Pull Requests em `develop` validam o Terraform sem aplicar
-infraestrutura. O `terraform plan` e utilizado durante a validacao dos Pull
-Requests, e o `terraform apply` ocorre somente apos a promocao para `main`.
-
----
-
-## Autenticação AWS no GitHub Actions
-
-O ambiente acadêmico utiliza credenciais temporárias fornecidas pelo **AWS Academy**.
-
-Os workflows utilizam os seguintes GitHub Actions Secrets:
-
-- `AWS_ACCESS_KEY_ID`;
-- `AWS_SECRET_ACCESS_KEY`;
-- `AWS_SESSION_TOKEN`.
-
-Os valores devem ser obtidos a partir da sessão atual do AWS Academy e cadastrados no GitHub em:
-
-```text
-Settings
-  → Secrets and variables
-    → Actions
-```
-
-As credenciais do AWS Academy são temporárias e expiram periodicamente.
-
-Quando uma nova sessão do laboratório for iniciada, pode ser necessário atualizar os três GitHub Actions Secrets.
-
-**Nenhuma credencial AWS deve ser adicionada diretamente ao código-fonte, arquivos `.tf`, `terraform.tfvars` ou documentação.**
-
-Em um ambiente corporativo ou produtivo, recomenda-se substituir esse modelo por autenticação federada utilizando **GitHub OIDC + IAM Role**.
-
----
-
-## Proteção das branches
-
-As branches de integração possuem regras de proteção para garantir o fluxo de entrega.
-
-O repositório utiliza:
-
-- `Protected integration branches`;
-- `Require develop promotion`;
-- `Required CI checks`.
-
-Essas regras ajudam a garantir que:
-
-- alterações sejam realizadas através de Pull Requests;
-- `main` receba alterações provenientes de `develop`;
-- validações obrigatórias sejam executadas antes do merge;
-- alterações diretas nas branches de integração sejam evitadas.
-
----
-
-## Estrutura principal
-
-```text
-.
-├── .github/
-│   └── workflows/
-│       ├── branch-flow.yml
-│       ├── terraform-plan.yml
-│       └── terraform-apply.yml
-│
-├── docs/
-│   ├── architecture/
-│   │   ├── architecture.md
-│   │   ├── component-diagram.md
-│   │   └── authentication-der.md
-│   │
-│   ├── rfcs/
-│   │   ├── RFC-001-repositorio-dedicado.md
-│   │   ├── RFC-002-rds-postgresql.md
-│   │   └── RFC-003-secrets-e-cicd.md
-│   │
-│   └── video/
-│       └── roteiro.md
-│
-├── modules/
-│   └── rds/
-│
-├── backend.tf
-├── main.tf
-├── outputs.tf
-├── providers.tf
-├── terraform.tfvars.example
-├── variables.tf
-└── versions.tf
-```
-
----
-
-## Documentação
-
-A documentação complementar está disponível nos seguintes arquivos:
-
-- [Documentação arquitetural](docs/architecture/architecture.md)
-- [Diagrama de componentes](docs/architecture/component-diagram.md)
-- [DER de autenticação](docs/architecture/authentication-der.md)
-- [RFC-001 — Repositório dedicado](docs/rfcs/RFC-001-repositorio-dedicado.md)
-- [RFC-002 — PostgreSQL no Amazon RDS](docs/rfcs/RFC-002-rds-postgresql.md)
-- [RFC-003 — Secrets e pipeline Terraform](docs/rfcs/RFC-003-secrets-e-cicd.md)
-- [Roteiro de apoio ao vídeo](docs/video/roteiro.md)
-
----
-
-## Decisões para o ambiente acadêmico
-
-Algumas configurações foram escolhidas especificamente para o contexto acadêmico:
-
-- instância `db.t4g.micro`;
-- Single-AZ;
-- `deletion_protection = false`;
-- `skip_final_snapshot = true`;
-- credenciais temporárias do AWS Academy;
-- acesso ao PostgreSQL restrito ao Security Group do EKS compartilhado.
-
-Essas decisões priorizam simplicidade, compatibilidade com o AWS Academy e controle de recursos.
-
----
-
-## Recomendações para produção
-
-Para uma implantação produtiva real, recomenda-se avaliar:
-
-- Multi-AZ;
-- deletion protection;
-- snapshots finais antes da exclusão;
-- política formal de backup e recuperação;
-- Performance Insights;
-- métricas e alarmes no Amazon CloudWatch;
-- Security Group exclusivo da aplicação como origem;
-- autenticação GitHub Actions através de OIDC;
-- IAM Roles com princípio do menor privilégio;
-- políticas de rotação e gestão de credenciais;
-- estratégia formal de disaster recovery.
-
----
-
-## Segurança
-
-Nunca devem ser versionados:
+Nunca versionar:
 
 - Access Key AWS;
 - Secret Access Key AWS;
 - Session Token;
 - senha do PostgreSQL;
-- conteúdo do AWS Secrets Manager;
-- arquivos locais contendo credenciais.
+- conteúdo de secrets;
+- `terraform.tfstate`;
+- arquivos locais com credenciais reais.
 
-A senha master do banco é gerenciada pelo Amazon RDS através do AWS Secrets Manager, enquanto as credenciais utilizadas pelo pipeline acadêmico são armazenadas como GitHub Actions Secrets.
+## 🚀 CI/CD
 
----
+Workflows existentes:
 
-## Projeto acadêmico
+| Workflow | Evento | Função |
+|---|---|---|
+| `.github/workflows/ci.yml` | `push` e PR para `develop`/`main` | valida README, diff, `terraform init -backend=false`, `fmt` e `validate` |
+| `.github/workflows/terraform-plan.yml` | PR para `develop`/`main` e `workflow_dispatch` | executa `init`, `fmt`, `validate` e `plan` |
+| `.github/workflows/branch-flow.yml` | PR para `main` | exige origem `develop` |
+| `.github/workflows/terraform-apply.yml` | `push` em `main` e `workflow_dispatch` | executa `terraform apply` no environment `production` |
 
-Infraestrutura desenvolvida como parte da Pós-Graduação FIAP — PosTech, utilizando práticas de:
+Fluxo de branches:
 
-- Infrastructure as Code;
-- Terraform;
-- Amazon RDS;
-- PostgreSQL;
-- AWS Secrets Manager;
-- GitHub Actions;
-- CI/CD;
-- documentação arquitetural;
-- registro de decisões através de RFCs.
+```text
+feature/*
+    -> Pull Request
+develop
+    -> Pull Request
+main
+    -> Production
+```
+
+As regras efetivas de proteção de branches são centralizadas no repositório `postech15soat-governance`.
+
+## ☁️ Deploy
+
+O deploy de infraestrutura ocorre no GitHub Actions quando alterações chegam à branch `main`.
+
+O workflow de apply usa:
+
+```bash
+terraform apply -input=false -auto-approve -var-file=terraform.tfvars.example
+```
+
+O environment utilizado é `production`.
+
+Secrets e variables esperados no GitHub:
+
+- `AWS_ACCESS_KEY_ID`;
+- `AWS_SECRET_ACCESS_KEY`;
+- `AWS_SESSION_TOKEN`;
+- `TF_STATE_BUCKET`.
+
+As credenciais AWS são temporárias no AWS Academy e podem precisar de atualização a cada nova sessão de laboratório.
+
+## 🗃️ Banco de Dados
+
+Características reais do RDS configurado:
+
+| Item | Valor |
+|---|---|
+| Engine | `postgres` |
+| Versão | `17.5` |
+| Classe | `db.t4g.micro` |
+| Armazenamento inicial | `20 GiB` |
+| Armazenamento máximo | `100 GiB` |
+| Tipo de storage | `gp3` |
+| Criptografia | habilitada |
+| Acesso público | desabilitado |
+| Multi-AZ | desabilitado / Single-AZ |
+| Backup retention | `7` dias |
+| Auto minor version upgrade | habilitado |
+| Deletion protection | desabilitado no exemplo acadêmico |
+| Apply immediately | habilitado |
+| Final snapshot no destroy | desabilitado (`skip_final_snapshot = true`) |
+| Porta | `5432` |
+
+Documentação de modelo de dados existente:
+
+- [docs/architecture/authentication-der.md](docs/architecture/authentication-der.md): DER apenas do contexto de autenticação administrativa.
+- [database/migrations/V1__create_initial_schema.sql](database/migrations/V1__create_initial_schema.sql): SQL com schema inicial contendo entidades de autenticação e domínio.
+- [database/seeds/seed_oficina_mvp.sql](database/seeds/seed_oficina_mvp.sql): seed local/desenvolvimento.
+
+Situação do DER:
+
+- Existe DER de autenticação.
+- Existe migration SQL com tabelas e FKs do schema inicial.
+- Não foi encontrado DER completo consolidado da solução.
+- Não foi encontrada explicação formal consolidada de todos os relacionamentos.
+
+TODO OBRIGATÓRIO — consolidar DER/modelo relacional final da solução e explicação dos relacionamentos.
+
+## 🔄 Integração com outros repositórios
+
+- `postech15soat-infra-cloud`: fornece VPC, subnets privadas e Security Group do EKS pelo remote state.
+- `numberone-app-auth`: autenticação por CPF, JWT, Lambda Authorizer, API Gateway e migrations/tabelas relacionadas ao RBAC quando aplicável.
+- `numberone-app-auto-service-api`: aplicação principal, domínio e execução atual do Flyway no startup.
+- `postech15soat-governance`: rulesets, branch protection e required checks.
+
+Outputs consumidos do state cloud:
+
+- `vpc_id`;
+- `private_subnet_ids`;
+- `eks_cluster_security_group_id`.
+
+Este repositório depende desses outputs para provisionar rede e segurança do RDS. Isso não significa acoplamento da aplicação ao Terraform do banco.
+
+## 📚 Documentação
+
+- [Documentação arquitetural](docs/architecture/architecture.md)
+- [Diagrama de componentes do banco](docs/architecture/component-diagram.md)
+- [DER de autenticação](docs/architecture/authentication-der.md)
+- [Adapters de persistência](docs/adapters.md)
+- [Tunel local para o RDS](docs/rds-port-forward.md)
+- [Variáveis de ambiente](docs/variaveis-ambiente.md)
+- [RFC-001 — Repositório dedicado para infraestrutura do banco](docs/rfcs/RFC-001-repositorio-dedicado.md)
+- [RFC-002 — PostgreSQL no Amazon RDS](docs/rfcs/RFC-002-rds-postgresql.md)
+- [RFC-003 — Secrets e pipeline Terraform](docs/rfcs/RFC-003-secrets-e-cicd.md)
+
+Não há arquivo `docs/video/roteiro.md` neste repositório.
+
+## 🧠 Decisões Arquiteturais
+
+RFCs existentes:
+
+| RFC | Status | Tema |
+|---|---|---|
+| [RFC-001](docs/rfcs/RFC-001-repositorio-dedicado.md) | Aceito | Repositório dedicado para infraestrutura do banco |
+| [RFC-002](docs/rfcs/RFC-002-rds-postgresql.md) | Aceito | PostgreSQL no Amazon RDS |
+| [RFC-003](docs/rfcs/RFC-003-secrets-e-cicd.md) | Aceito | Secrets Manager e pipeline Terraform |
+
+Justificativa formal da escolha do PostgreSQL: [RFC-002 — PostgreSQL no Amazon RDS](docs/rfcs/RFC-002-rds-postgresql.md).
+
+ADRs existentes: nenhum ADR foi encontrado no repositório.
+
+Candidatos a ADR, sem status de decisão aceita:
+
+- `[CANDIDATO A ADR]` política acadêmica de Single-AZ, sizing reduzido e deletion protection desabilitado;
+- `[CANDIDATO A ADR]` ownership futuro das migrations no `postech15soat-infra-database`;
+- `[CANDIDATO A ADR]` política produtiva futura de alta disponibilidade, backups e disaster recovery.
+
+## ⚠️ Limitações e decisões do ambiente acadêmico
+
+Por orientação acadêmica, existem apenas:
+
+- Local: desenvolvimento;
+- Production: AWS Academy.
+
+Não há ambiente cloud de homologação neste projeto.
+
+Decisões pragmáticas confirmadas no Terraform:
+
+- `db.t4g.micro`;
+- Single-AZ;
+- armazenamento inicial de `20 GiB`;
+- deletion protection desabilitado no exemplo acadêmico;
+- `skip_final_snapshot = true`;
+- `apply_immediately = true`;
+- credenciais AWS temporárias do AWS Academy.
+
+Essas escolhas atendem ao contexto acadêmico, custo e simplicidade operacional do laboratório. Elas não representam necessariamente uma configuração de produção corporativa.
+
+## 🤝 Contribuição
+
+Fluxo esperado:
+
+1. criar branch `feature/*`;
+2. abrir Pull Request para `develop`;
+3. validar CI e Terraform plan;
+4. promover de `develop` para `main` via Pull Request;
+5. aplicar em `production` pelo GitHub Actions.
+
+Não fazer push direto para `develop` ou `main`.
