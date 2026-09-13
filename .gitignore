@@ -7,3 +7,5 @@ crash.*.log
 !terraform.tfvars.example
 .terraform.tfplan
 .DS_Store
+
+.idea

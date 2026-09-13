@@ -78,6 +78,10 @@ O diagrama completo está disponível em:
 
 `docs/architecture/component-diagram.md`
 
+Para conectar no RDS privado usando DBeaver ou ferramentas similares, use o tunel documentado em:
+
+`docs/rds-port-forward.md`
+
 ---
 
 ## Amazon RDS PostgreSQL
