@@ -8,9 +8,12 @@ flowchart LR
 
     SECRETS_GH[GitHub Actions Secrets<br/>AWS Academy] --> GA
 
-    TF --> S3[(S3<br/>Terraform State)]
-    TF --> VPC[VPC existente]
-    TF --> SUBNETS[Subnets existentes]
+    TF --> S3_DB[(S3<br/>database/terraform.tfstate)]
+    TF --> S3_CLOUD[(S3<br/>cloud/terraform.tfstate)]
+
+    S3_CLOUD --> VPC[VPC<br/>infra-cloud]
+    S3_CLOUD --> SUBNETS[Private Subnets<br/>infra-cloud]
+    S3_CLOUD --> EKS_SG[EKS Cluster SG<br/>infra-cloud]
 
     TF --> PG[RDS Parameter Group]
     TF --> SG[Security Group RDS]
@@ -23,12 +26,13 @@ flowchart LR
     PG --> RDS
     SG --> RDS
 
-    APP[Aplicação / EKS] -->|TCP 5432| SG
+    APP[EKS / Aplicação Spring Boot] --> EKS_SG
+    EKS_SG -->|TCP 5432| SG
 ```
 
 ## Responsabilidades
 
-- **PosTech15SOAT-Infra-Banco**: ciclo de vida do RDS, Parameter Group, Security Group e integração com Secrets Manager.
-- **Infraestrutura de rede existente**: VPC e subnets reutilizadas pelo RDS e fornecidas ao Terraform por variáveis.
+- **postech15soat-infra-database**: ciclo de vida do RDS, DB Subnet Group, Parameter Group, Security Group, state do banco e integração com Secrets Manager.
+- **postech15soat-infra-cloud**: VPC, subnets privadas e Security Group do EKS publicados via remote state.
 - **GitHub Actions**: validação, plano e aplicação controlada do Terraform.
 - **AWS Secrets Manager**: armazenamento das credenciais master gerenciadas pelo próprio RDS.
