@@ -306,6 +306,7 @@ Este repositório depende desses outputs para provisionar rede e segurança do R
 - [DER de autenticação](docs/architecture/authentication-der.md)
 - [Adapters de persistência](docs/adapters.md)
 - [Tunel local para o RDS](docs/rds-port-forward.md)
+- [Inicialização do PostgreSQL dos serviços](docs/postgresql-initialization.md)
 - [Variáveis de ambiente](docs/variaveis-ambiente.md)
 - [RFC-001 — Repositório dedicado para infraestrutura do banco](docs/rfcs/RFC-001-repositorio-dedicado.md)
 - [RFC-002 — PostgreSQL no Amazon RDS](docs/rfcs/RFC-002-rds-postgresql.md)

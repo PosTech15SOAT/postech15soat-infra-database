@@ -1,0 +1,36 @@
+name: Initialize PostgreSQL
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: initialize-postgresql
+  cancel-in-progress: false
+
+jobs:
+  initialize:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AWS_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      KUBECONFIG: ${{ runner.temp }}/postgresql-init-kubeconfig
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Academy credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
+            [[ -n "${!name}" ]] || { echo "Credencial ausente: $name" >&2; exit 1; }
+          done
+          [[ "$(aws sts get-caller-identity --region us-east-1 --query Account --output text)" == 891377201345 ]] || { echo 'Conta AWS incorreta' >&2; exit 1; }
+      - name: Initialize databases
+        run: python3 scripts/postgresql-init/run.py
