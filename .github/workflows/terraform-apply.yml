@@ -33,11 +33,21 @@ jobs:
 
       - name: Check required configuration
         shell: bash
+        env:
+          DB_OS_USERNAME: ${{ vars.DB_OS_USERNAME }}
+          DB_BILLING_USERNAME: ${{ vars.DB_BILLING_USERNAME }}
+          DB_INVENTORY_USERNAME: ${{ vars.DB_INVENTORY_USERNAME }}
+          DB_OS_PASSWORD: ${{ secrets.DB_OS_PASSWORD }}
+          DB_BILLING_PASSWORD: ${{ secrets.DB_BILLING_PASSWORD }}
+          DB_INVENTORY_PASSWORD: ${{ secrets.DB_INVENTORY_PASSWORD }}
         run: |
+          set +x
           set -euo pipefail
-          for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN TF_STATE_BUCKET; do
+          for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN TF_STATE_BUCKET \
+            DB_OS_USERNAME DB_BILLING_USERNAME DB_INVENTORY_USERNAME \
+            DB_OS_PASSWORD DB_BILLING_PASSWORD DB_INVENTORY_PASSWORD; do
             if [[ -z "${!name:-}" ]]; then
-              echo "::error::$name is not configured in the production environment."
+              echo "::error::$name is not configured in this repository."
               exit 1
             fi
           done
@@ -56,3 +66,34 @@ jobs:
 
       - name: Terraform Apply
         run: terraform apply -input=false -auto-approve -var-file=terraform.tfvars.example
+
+      - name: Initialize application secrets
+        shell: bash
+        env:
+          DB_OS_USERNAME: ${{ vars.DB_OS_USERNAME }}
+          DB_BILLING_USERNAME: ${{ vars.DB_BILLING_USERNAME }}
+          DB_INVENTORY_USERNAME: ${{ vars.DB_INVENTORY_USERNAME }}
+          DB_OS_PASSWORD: ${{ secrets.DB_OS_PASSWORD }}
+          DB_BILLING_PASSWORD: ${{ secrets.DB_BILLING_PASSWORD }}
+          DB_INVENTORY_PASSWORD: ${{ secrets.DB_INVENTORY_PASSWORD }}
+        run: |
+          set +x
+          set -euo pipefail
+          trap 'echo "::error::Inicialização incompleta. Confira as versões dos três secrets antes de executar novamente; valores já criados não serão sobrescritos."' ERR
+          for service in OS BILLING INVENTORY; do
+            case "$service" in
+              OS) secret=numberone-os-database ;;
+              BILLING) secret=numberone-billing-database ;;
+              INVENTORY) secret=numberone-inventory-database ;;
+            esac
+            current=$(aws secretsmanager describe-secret --secret-id "$secret" --output json |
+              python3 -c 'import json,sys; print(any("AWSCURRENT" in stages for stages in json.load(sys.stdin).get("VersionIdsToStages", {}).values()))')
+            if [[ "$current" == True ]]; then
+              echo "$secret já possui AWSCURRENT; mantendo o valor existente."
+              continue
+            fi
+            export BOOTSTRAP_USERNAME_VAR="DB_${service}_USERNAME" BOOTSTRAP_PASSWORD_VAR="DB_${service}_PASSWORD"
+            python3 -c 'import json,os,sys; json.dump({"username": os.environ[os.environ["BOOTSTRAP_USERNAME_VAR"]], "password": os.environ[os.environ["BOOTSTRAP_PASSWORD_VAR"]]}, sys.stdout)' |
+              aws secretsmanager put-secret-value --secret-id "$secret" --secret-string file:///dev/stdin --output json >/dev/null
+            echo "$secret inicializado."
+          done

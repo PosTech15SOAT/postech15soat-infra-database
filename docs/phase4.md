@@ -1,10 +1,20 @@
 # Fase 4 — databases dos microserviços
 
-A configuração Terraform ativa fica na raiz. Ela cria RDS `numberone-postgres`, com senha master gerenciada pelo RDS, TLS obrigatório e três containers Secrets Manager vazios: `numberone-os-database`, `numberone-billing-database`, `numberone-inventory-database`. O valor de cada secret é criado fora do Terraform e não entra em seu state. O RDS é privado, usa subnets e security group do state Cloud; confirme que os nodes usam o SG autorizado. `infra/` é uma configuração histórica independente e não é utilizada no workflow.
+O Terraform na raiz cria o RDS privado `numberone-postgres` e os contêineres `numberone-os-database`, `numberone-billing-database` e `numberone-inventory-database`. As senhas não entram no Terraform State. A configuração `infra/` é histórica e independente.
 
-Após provisionar e validar o RDS na nova conta, um administrador deve acessar PostgreSQL em rede privada ou por túnel aprovado (ver `rds-port-forward.md`) usando TLS e credencial master, sem guardar senha em linha de comando, logs ou histórico. Antes de qualquer comando, verifique se roles e databases já existem; se existirem, pare e investigue ownership e privilégios. Não use master nos serviços.
+## Secrets de aplicação
 
-Crie uma senha forte independente para cada role no Secrets Manager, como JSON com `username` e `password`. Os usernames são `numberone_os`, `numberone_billing` e `numberone_inventory`; restrinja leitura de cada secret à identidade de deploy correspondente. Em uma sessão administrativa `psql` conectada ao database `postgres`, execute fora de transação:
+Após cada Terraform Apply bem-sucedido, inclusive sem alterações, o workflow da main inicializa os secrets sem versão `AWSCURRENT`, usando as repository variables `DB_OS_USERNAME`, `DB_BILLING_USERNAME`, `DB_INVENTORY_USERNAME` e os repository secrets `DB_OS_PASSWORD`, `DB_BILLING_PASSWORD`, `DB_INVENTORY_PASSWORD`. Configure todos antes do apply; os usernames devem ser, respectivamente, `numberone_os`, `numberone_billing` e `numberone_inventory`. O valor é JSON com `username` e `password`.
+
+A identidade AWS precisa de `secretsmanager:DescribeSecret` e `secretsmanager:PutSecretValue` nos três secrets e das permissões KMS aplicáveis. Secrets com `AWSCURRENT` não são alterados; mudar valores no GitHub não atualiza nem rotaciona o secret existente. Uma falha pode deixar apenas parte dos secrets preenchida: confira os três e corrija a causa antes de repetir o workflow. Evite execuções simultâneas e outros escritores: a consulta e a gravação não são atômicas.
+
+São credenciais do laboratório AWS Academy. Em produção, utilize credenciais únicas por serviço e ambiente, acesso de menor privilégio, gestão apropriada e rotação coordenada entre PostgreSQL, Secrets Manager e Kubernetes.
+
+## Preparação PostgreSQL
+
+Secrets Manager e PostgreSQL têm estados independentes: inicializar um secret não cria a role ou configura sua senha. Um administrador deve preparar os bancos separadamente, usando as mesmas credenciais cadastradas para cada serviço. Se um secret já tinha `AWSCURRENT`, confira a credencial efetiva armazenada nele por um meio seguro: ela pode ser diferente da configuração atual do GitHub. Não imprima senhas em logs, argumentos, histórico ou SQL e não use a credencial master nos serviços.
+
+Acesse o RDS por rede privada ou pelo [túnel](rds-port-forward.md), usando TLS e a credencial master gerenciada pelo RDS. Confirme conta, endpoint, identidade e permissões. Antes de iniciar, verifique a existência das três roles e databases; se qualquer um existir, pare e investigue ownership e privilégios. Em uma sessão administrativa `psql` conectada a `postgres`, execute fora de transação:
 
 ```sql
 CREATE ROLE numberone_os NOLOGIN;
@@ -24,8 +34,10 @@ ALTER ROLE numberone_billing LOGIN;
 ALTER ROLE numberone_inventory LOGIN;
 ```
 
-Em cada prompt `\password`, informe a senha correspondente ao secret sem escrever SQL com senhas. Donos conservam acesso ao próprio banco e podem criar objetos e tabela Flyway. Não conceda membership entre as roles. Como bancos administrativos e o banco inicial também podem conceder CONNECT a PUBLIC, revise e revogue esse acesso nesses bancos quando apropriado, preservando o acesso dos administradores e serviços autorizados. Valide com cada role que pode conectar apenas ao próprio banco, criar objetos e que não acessa os outros; falhas parciais exigem inspeção antes de retomar.
+Em cada prompt `\password`, informe a senha correspondente ao secret. Donos podem criar os objetos e o histórico Flyway; não conceda membership entre as roles. Conecte como administrador ao `numberone_inventory` e execute `CREATE EXTENSION IF NOT EXISTS pgcrypto;` antes do primeiro deploy. Não execute as migrations manualmente. Se houver falha parcial, inspecione os objetos antes de retomar; não apague bancos nem redefina senhas automaticamente.
 
-Conecte como administrador ao `numberone_inventory` e execute `CREATE EXTENSION IF NOT EXISTS pgcrypto;` antes do primeiro deploy: a migration V1 também solicita essa extensão. Confirme disponibilidade e permissões no RDS PostgreSQL 17; não execute migrations manualmente. Cada Flyway de aplicação cria seus próprios objetos. URLs dos workflows usam `sslmode=require`; isso cifra mas não autentica a identidade do servidor. Para verificação de identidade é necessário configurar CA RDS e `verify-full` em cada cliente.
+Valide que cada role conecta ao próprio banco e não aos outros dois. Revise separadamente o acesso aos bancos administrativos e ao banco inicial, preservando os acessos necessários. TLS com `sslmode=require` cifra a conexão, mas não autentica o servidor; para verificar a identidade, configure a CA do RDS e `verify-full`.
 
-Configure no GitHub os ARNs completos (output `application_secret_arns`) como repository variable `DB_SECRET_ARN` de cada serviço, e `DB_APP_USERNAME` em OS e Inventory. Compartilhe organização variables e secrets conforme `docs/phase4.md` no Cloud. Rotação requer atualizar a senha no PostgreSQL e no Secrets Manager e repetir a sincronização Kubernetes, coordenando a janela de troca. Confirme permissões `rds:DescribeDBInstances`, `secretsmanager:GetSecretValue`, eventual `kms:Decrypt` e acesso Kubernetes por identidade. Os Secrets Kubernetes também requerem controle RBAC e proteção adequada de dados no cluster.
+## Deploy dos serviços
+
+Os workflows dos serviços descobrem os secrets por nome e leem suas credenciais durante o deploy. Configure `DB_APP_USERNAME` em OS e Inventory conforme seus respectivos workflows, e conceda às identidades de deploy acesso apenas ao secret necessário, `rds:DescribeDBInstances`, `secretsmanager:GetSecretValue`, eventual `kms:Decrypt` e acesso Kubernetes. Proteja também os Secrets Kubernetes com RBAC adequado.
