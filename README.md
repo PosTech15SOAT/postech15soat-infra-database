@@ -1,5 +1,7 @@
 # NumberOne — Infraestrutura do Banco
 
+[Arquitetura e entregáveis da Fase 4](docs/arquitetura-fase-4.md)
+
 Infraestrutura como código do banco PostgreSQL do projeto **NumberOne**, desenvolvida para o Tech Challenge Fase 3 da FIAP.
 
 Este repositório concentra o provisionamento do Amazon RDS PostgreSQL e a documentação relacionada à infraestrutura do banco. A aplicação principal, autenticação, rede base, EKS, API Gateway e governança permanecem em seus respectivos repositórios.
