@@ -3,12 +3,12 @@ data "aws_vpc" "this" {
 }
 
 resource "aws_security_group" "this" {
-  name        = "${var.project_name}-${var.environment}-rds"
+  name        = "${var.project_name}-rds"
   description = "Acesso ao PostgreSQL RDS"
   vpc_id      = var.vpc_id
 
   tags = {
-    Name = "${var.project_name}-${var.environment}-rds-sg"
+    Name = "${var.project_name}-rds-sg"
   }
 }
 
@@ -41,12 +41,12 @@ resource "aws_vpc_security_group_egress_rule" "all" {
 }
 
 resource "aws_db_subnet_group" "this" {
-  name       = "${var.project_name}-${var.environment}-db-subnet-group"
+  name       = "${var.project_name}-db-subnet-group"
   subnet_ids = var.subnet_ids
 }
 
 resource "aws_db_parameter_group" "this" {
-  name   = "${var.project_name}-${var.environment}-postgres17"
+  name   = "${var.project_name}-postgres17"
   family = "postgres17"
 
   parameter {
@@ -71,7 +71,7 @@ resource "aws_db_parameter_group" "this" {
 }
 
 resource "aws_db_instance" "this" {
-  identifier = "${var.project_name}-${var.environment}-postgres"
+  identifier = "${var.project_name}-postgres"
 
   engine         = "postgres"
   engine_version = "17.5"
@@ -102,6 +102,6 @@ resource "aws_db_instance" "this" {
   apply_immediately          = true
 
   tags = {
-    Name = "${var.project_name}-${var.environment}-postgres"
+    Name = "${var.project_name}-postgres"
   }
 }
