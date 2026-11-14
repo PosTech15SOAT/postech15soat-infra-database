@@ -43,3 +43,12 @@ output "application_security_group_id" {
   description = "Security Group do EKS autorizado a acessar o PostgreSQL."
   value       = data.terraform_remote_state.cloud.outputs.eks_cluster_security_group_id
 }
+
+output "application_secret_arns" {
+  description = "ARNs dos secrets de aplicação, sem valores."
+  value = {
+    os        = aws_secretsmanager_secret.os_database.arn
+    billing   = aws_secretsmanager_secret.billing_database.arn
+    inventory = aws_secretsmanager_secret.inventory_database.arn
+  }
+}
