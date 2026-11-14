@@ -1,116 +1,15 @@
-# Tunel local para o RDS PostgreSQL
+# Túnel local para o RDS PostgreSQL
 
-O RDS PostgreSQL deste projeto nao possui acesso publico. Para conectar ferramentas locais como DBeaver, DataGrip ou similares, crie um tunel atraves do cluster EKS.
+O RDS é privado. Para acesso administrativo local, abra um túnel pelo EKS, com permissões AWS e Kubernetes apropriadas. O script cria e remove o pod `postgres-tunnel`; confirme antes que esse nome não está em uso no namespace. Ele também atualiza o kubeconfig local.
 
-## Uso rapido
-
-Execute:
+O script contém valores padrão históricos. Informe explicitamente o cluster atual, o namespace existente autorizado a acessar o RDS e o endpoint atual:
 
 ```sh
+RDS_ENDPOINT="$(aws rds describe-db-instances --region us-east-1 --db-instance-identifier numberone-postgres --query 'DBInstances[0].Endpoint.Address' --output text)" \
+EKS_CLUSTER_NAME=numberone-eks KUBE_NAMESPACE=numberone-production LOCAL_PORT=15432 \
 ./scripts/rds-port-forward.sh
 ```
 
-Enquanto o script estiver aberto, configure a conexao no DBeaver:
+Confirme o namespace antes de executar; mantenha o processo aberto e encerre com Ctrl+C. Em outro terminal, configure o cliente para usar `127.0.0.1:15432`, database `postgres` e usuário master `numberone_admin`. A credencial master é gerenciada pelo RDS no Secrets Manager; obtenha-a de forma segura, sem imprimi-la em logs ou colocá-la em argumentos ou histórico.
 
-| Campo | Valor |
-|---|---|
-| Host | `localhost` |
-| Port | `5432` |
-| Database | `numberone` |
-| Username | `numberone_admin` |
-| SSL | habilitado/preferido |
-
-A senha master fica no AWS Secrets Manager, gerenciada pelo RDS. Para descobrir o ARN do secret:
-
-```sh
-terraform output rds_master_secret_arn
-```
-
-Se o Terraform ocultar o valor sensivel, use:
-
-```sh
-terraform output -raw rds_master_secret_arn
-```
-
-Depois consulte o secret na AWS:
-
-```sh
-aws secretsmanager get-secret-value \
-  --region us-east-1 \
-  --secret-id "$(terraform output -raw rds_master_secret_arn)" \
-  --query SecretString \
-  --output text
-```
-
-## Variaveis do script
-
-O script ja vem com os valores do ambiente atual:
-
-```text
-AWS_REGION=us-east-1
-EKS_CLUSTER_NAME=numberone-lab-eks
-KUBE_NAMESPACE=numberone-production
-RDS_ENDPOINT=numberone-lab-postgres.c5yky0sc2omt.us-east-1.rds.amazonaws.com
-RDS_PORT=5432
-LOCAL_PORT=5432
-POD_NAME=postgres-tunnel
-```
-
-Para trocar a porta local, por exemplo quando a `5432` ja estiver em uso:
-
-```sh
-LOCAL_PORT=15432 ./scripts/rds-port-forward.sh
-```
-
-Nesse caso, use `localhost:15432` no DBeaver.
-
-## Comandos manuais
-
-Liste os clusters EKS:
-
-```sh
-aws eks list-clusters \
-  --region us-east-1 \
-  --output table
-```
-
-Atualize o kubeconfig:
-
-```sh
-aws eks update-kubeconfig \
-  --region us-east-1 \
-  --name numberone-lab-eks
-```
-
-Crie o pod que encaminha trafego para o RDS:
-
-```sh
-kubectl run postgres-tunnel \
-  -n numberone-production \
-  --image=alpine/socat \
-  --restart=Never \
-  -- \
-  tcp-listen:5432,fork,reuseaddr \
-  tcp-connect:numberone-lab-postgres.c5yky0sc2omt.us-east-1.rds.amazonaws.com:5432
-```
-
-Confira o pod:
-
-```sh
-kubectl get pods -n numberone-production
-```
-
-Abra o port-forward local:
-
-```sh
-kubectl port-forward \
-  -n numberone-production \
-  pod/postgres-tunnel \
-  5432:5432
-```
-
-Quando terminar, remova o pod:
-
-```sh
-kubectl delete pod postgres-tunnel -n numberone-production
-```
+Para autenticar a identidade do servidor através do túnel, configure a CA oficial do RDS e `sslmode=verify-full`, usando o endpoint real como `host` e `127.0.0.1` como `hostaddr` no libpq. Consulte o [procedimento da Fase 4](phase4.md) antes de criar os bancos e roles.
