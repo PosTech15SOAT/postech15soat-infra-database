@@ -1,3 +1,5 @@
+> Fase 4: consulte [o procedimento atualizado](docs/phase4.md). Trechos anteriores podem descrever a Fase 3.
+
 # NumberOne — Infraestrutura do Banco
 
 Infraestrutura como código do banco PostgreSQL do projeto **NumberOne**, desenvolvida para o Tech Challenge Fase 3 da FIAP.

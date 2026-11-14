@@ -12,7 +12,6 @@ jobs:
   apply:
     if: github.ref_name == 'main'
     runs-on: ubuntu-latest
-    environment: production
     env:
       AWS_REGION: us-east-1
       AWS_DEFAULT_REGION: us-east-1
