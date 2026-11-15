@@ -49,7 +49,10 @@ def secret_value(name):
 
 
 def main():
-    if aws('sts', 'get-caller-identity')['Account'] != '891377201345':
+    expected_account = os.environ.get('EXPECTED_AWS_ACCOUNT_ID', '')
+    if len(expected_account) != 12 or not expected_account.isascii() or not expected_account.isdecimal():
+        raise RuntimeError('Configure EXPECTED_AWS_ACCOUNT_ID com o ID da conta AWS de destino')
+    if aws('sts', 'get-caller-identity')['Account'] != expected_account:
         raise RuntimeError('Conta AWS inesperada')
     cluster = aws('eks', 'describe-cluster', '--name', 'numberone-eks')['cluster']
     if cluster['status'] != 'ACTIVE':
