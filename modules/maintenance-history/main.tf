@@ -46,6 +46,11 @@ resource "aws_iam_policy" "os_history" {
   name        = "${var.name_prefix}-os-maintenance-history"
   description = "Permite à identidade da OS projetar e consultar o histórico na tabela dedicada."
   policy      = data.aws_iam_policy_document.os_history.json
+
+  lifecycle {
+    # A sessão AWS Academy não tem iam:TagPolicy para esta policy existente.
+    ignore_changes = [tags_all]
+  }
 }
 
 output "table_name" {
