@@ -50,5 +50,6 @@ output "application_secret_arns" {
     os        = aws_secretsmanager_secret.os_database.arn
     billing   = aws_secretsmanager_secret.billing_database.arn
     inventory = aws_secretsmanager_secret.inventory_database.arn
+    auth      = aws_secretsmanager_secret.auth_database.arn
   }
 }
