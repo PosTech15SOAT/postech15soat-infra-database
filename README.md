@@ -1,4 +1,4 @@
-> Fase 4: consulte [o procedimento atualizado](docs/phase4.md). Trechos anteriores podem descrever a Fase 3.
+> Fase 4: consulte [o procedimento atualizado](docs/phase4.md). Trechos anteriores podem descrever a Fase 3. 
 
 # NumberOne — Infraestrutura do Banco
 
