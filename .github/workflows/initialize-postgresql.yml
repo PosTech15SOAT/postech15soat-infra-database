@@ -53,7 +53,7 @@ jobs:
               exit 1
             }
 
-      - name: Initialize databases
+      - name: Initialize and validate OS, Billing, Inventory and Auth
         env:
           KUBECONFIG: ${{ runner.temp }}/postgresql-init-kubeconfig
         run: python3 scripts/postgresql-init/run.py
