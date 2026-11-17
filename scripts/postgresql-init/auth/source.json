@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/PosTech15SOAT/numberone-app-auth",
+  "commit": "647b7c02543721318bf1104df841773fb58dce72",
+  "sha256": {
+    "db/phase4/bootstrap.psql": "85c3241d1949735c99784f342cff5d3e1e8eb27b2252efbee164eb606bc155c4",
+    "db/phase4/001_identity.sql": "b28f0fdcd0386c5d65f26365ed8bd23889b257858056db37ad7aef4c7f1dbd38"
+  }
+}

@@ -18,6 +18,8 @@ jobs:
     timeout-minutes: 20
 
     env:
+      DB_AUTH_USERNAME: ${{ vars.DB_AUTH_USERNAME }}
+      DB_AUTH_PASSWORD: ${{ secrets.DB_AUTH_PASSWORD }}
       AWS_REGION: us-east-1
       AWS_DEFAULT_REGION: us-east-1
       EXPECTED_AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
@@ -33,8 +35,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
-            [[ -n "${!name}" ]] || {
+          for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN DB_AUTH_USERNAME DB_AUTH_PASSWORD; do
+            [[ -n "${!name:-}" ]] || {
               echo "Credencial ausente: $name" >&2
               exit 1
             }
@@ -53,7 +55,7 @@ jobs:
               exit 1
             }
 
-      - name: Initialize databases
+      - name: Initialize and validate OS, Billing, Inventory and Auth
         env:
           KUBECONFIG: ${{ runner.temp }}/postgresql-init-kubeconfig
         run: python3 scripts/postgresql-init/run.py
