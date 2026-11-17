@@ -2,10 +2,10 @@
 """Run one short-lived EKS bootstrap job; secret values only travel over stdin."""
 import base64
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
-import secrets
 import subprocess
 import sys
 import time
@@ -57,21 +57,31 @@ def secret_value(name):
     return value
 
 
+def auth_input():
+    username = os.environ.get('DB_AUTH_USERNAME', '')
+    password = os.environ.get('DB_AUTH_PASSWORD', '')
+    if username != AUTH_USERNAME:
+        raise RuntimeError('DB_AUTH_USERNAME deve ser ' + AUTH_USERNAME)
+    if not password or any(c in password for c in '\r\n\x00'):
+        raise RuntimeError('DB_AUTH_PASSWORD ausente ou contém quebra de linha/NUL')
+    return {'username': username, 'password': password}
+
+
 def auth_credentials():
+    expected = auth_input()
     description = aws('secretsmanager', 'describe-secret', '--secret-id', AUTH_SECRET)
     versions = description.get('VersionIdsToStages', {})
     if not any('AWSCURRENT' in stages for stages in versions.values()):
         if versions:
             raise RuntimeError('Secret Auth parcial: existem versões sem AWSCURRENT; inspecione sem rotacionar')
-        value = {'username': AUTH_USERNAME, 'password': secrets.token_urlsafe(48)}
         # O container do secret é criado somente pelo Terraform. O valor nunca passa em argv.
         call(['aws', 'secretsmanager', 'put-secret-value', '--secret-id', AUTH_SECRET,
               '--secret-string', 'file:///dev/stdin', '--region', REGION, '--output', 'json'],
-             data=json.dumps(value), sensitive=True)
+             data=json.dumps(expected), sensitive=True)
     # Releitura garante que a credencial enviada ao PostgreSQL é a versão publicada.
     value = secret_value(AUTH_SECRET)
-    if value['username'] != AUTH_USERNAME:
-        raise RuntimeError('Username inesperado no secret do Auth')
+    if value['username'] != expected['username'] or not hmac.compare_digest(value['password'].encode(), expected['password'].encode()):
+        raise RuntimeError('Credenciais do Auth divergem do secret AWSCURRENT; inspecione sem rotacionar')
     return value
 
 
@@ -89,6 +99,7 @@ def bootstrap_files():
 
 def main():
     scripts = bootstrap_files()
+    auth_input()
     expected_account = os.environ.get('EXPECTED_AWS_ACCOUNT_ID', '')
     if len(expected_account) != 12 or not expected_account.isascii() or not expected_account.isdecimal():
         raise RuntimeError('Configure EXPECTED_AWS_ACCOUNT_ID com o ID da conta AWS de destino')

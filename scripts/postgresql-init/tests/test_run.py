@@ -17,77 +17,81 @@ SPEC.loader.exec_module(runner)
 
 
 class AuthCredentialsTest(unittest.TestCase):
-    def test_current_credential_is_reused_without_generating_or_publishing(self):
-        value = {'username': runner.AUTH_USERNAME, 'password': 'existing-test-fixture'}
+    def setUp(self):
+        self.value = {'username': runner.AUTH_USERNAME, 'password': 'offline-auth-fixture'}
+        self.environment = patch.dict(os.environ, DB_AUTH_USERNAME=self.value['username'],
+                                      DB_AUTH_PASSWORD=self.value['password'])
+        self.environment.start()
+        self.addCleanup(self.environment.stop)
+
+    def test_current_credential_is_reused_without_publication(self):
         with patch.object(runner, 'aws', return_value={'VersionIdsToStages': {'v1': ['AWSCURRENT']}}), \
-                patch.object(runner, 'secret_value', return_value=value), \
-                patch.object(runner, 'call') as writer, \
-                patch.object(runner.secrets, 'token_urlsafe') as generate:
-            self.assertEqual(runner.auth_credentials(), value)
-            generate.assert_not_called()
+                patch.object(runner, 'secret_value', return_value=self.value), \
+                patch.object(runner, 'call') as writer:
+            self.assertEqual(runner.auth_credentials(), self.value)
             writer.assert_not_called()
 
-    def test_empty_secret_publishes_strong_password_over_stdin_then_reads_current(self):
-        value = {'username': runner.AUTH_USERNAME, 'password': 'new-test-fixture'}
+    def test_empty_secret_publishes_supplied_credential_over_stdin(self):
         with patch.object(runner, 'aws', return_value={}), \
-                patch.object(runner, 'secret_value', return_value=value) as read, \
-                patch.object(runner, 'call') as writer, \
-                patch.object(runner.secrets, 'token_urlsafe', return_value=value['password']) as generate:
-            self.assertEqual(runner.auth_credentials(), value)
-            generate.assert_called_once_with(48)
+                patch.object(runner, 'secret_value', return_value=self.value) as read, \
+                patch.object(runner, 'call') as writer:
+            self.assertEqual(runner.auth_credentials(), self.value)
             read.assert_called_once_with(runner.AUTH_SECRET)
             args, kwargs = writer.call_args
-            self.assertEqual(args[0][:5], ['aws', 'secretsmanager', 'put-secret-value', '--secret-id', runner.AUTH_SECRET])
             self.assertIn('file:///dev/stdin', args[0])
-            self.assertNotIn(value['password'], ' '.join(args[0]))
-            self.assertEqual(json.loads(kwargs['data']), value)
+            self.assertNotIn(self.value['password'], ' '.join(args[0]))
+            self.assertEqual(json.loads(kwargs['data']), self.value)
             self.assertTrue(kwargs['sensitive'])
+
+    def test_missing_or_invalid_input_fails_before_aws(self):
+        for username, password in [('', 'test'), ('owner', 'test'), (runner.AUTH_USERNAME, ''),
+                                   (runner.AUTH_USERNAME, 'test\n')]:
+            with self.subTest(username=username, password=repr(password)), \
+                    patch.dict(os.environ, DB_AUTH_USERNAME=username, DB_AUTH_PASSWORD=password), \
+                    patch.object(runner, 'aws') as aws:
+                with self.assertRaises(RuntimeError):
+                    runner.auth_credentials()
+                aws.assert_not_called()
+
+    def test_divergent_current_is_not_replaced_or_exposed(self):
+        for value in [{'username': 'owner', 'password': self.value['password']},
+                      {'username': runner.AUTH_USERNAME, 'password': 'different-private-fixture'}]:
+            with self.subTest(username=value['username']), \
+                    patch.object(runner, 'aws', return_value={'VersionIdsToStages': {'v1': ['AWSCURRENT']}}), \
+                    patch.object(runner, 'secret_value', return_value=value), \
+                    patch.object(runner, 'call') as writer:
+                with self.assertRaisesRegex(RuntimeError, 'divergem') as error:
+                    runner.auth_credentials()
+                self.assertNotIn(value['password'], str(error.exception))
+                writer.assert_not_called()
 
     def test_versions_without_current_fail_without_replacement(self):
         with patch.object(runner, 'aws', return_value={'VersionIdsToStages': {'v1': ['AWSPREVIOUS']}}), \
-                patch.object(runner, 'call') as writer, \
-                patch.object(runner.secrets, 'token_urlsafe') as generate:
+                patch.object(runner, 'call') as writer:
             with self.assertRaisesRegex(RuntimeError, 'parcial'):
                 runner.auth_credentials()
-            generate.assert_not_called()
             writer.assert_not_called()
 
-    def test_invalid_current_is_not_replaced(self):
+    def test_read_or_iam_failure_does_not_replace_current(self):
         with patch.object(runner, 'aws', return_value={'VersionIdsToStages': {'v1': ['AWSCURRENT']}}), \
-                patch.object(runner, 'secret_value', side_effect=RuntimeError('invalid credential')), \
-                patch.object(runner, 'call') as writer, \
-                patch.object(runner.secrets, 'token_urlsafe') as generate:
-            with self.assertRaises(RuntimeError):
-                runner.auth_credentials()
-            generate.assert_not_called()
-            writer.assert_not_called()
-
-    def test_unexpected_username_is_not_replaced(self):
-        with patch.object(runner, 'aws', return_value={'VersionIdsToStages': {'v1': ['AWSCURRENT']}}), \
-                patch.object(runner, 'secret_value', return_value={'username': 'owner', 'password': 'test-fixture'}), \
-                patch.object(runner, 'call') as writer:
-            with self.assertRaisesRegex(RuntimeError, 'Username'):
-                runner.auth_credentials()
-            writer.assert_not_called()
-
-    def test_read_failure_after_publication_does_not_generate_again(self):
-        with patch.object(runner, 'aws', return_value={}), \
                 patch.object(runner, 'secret_value', side_effect=RuntimeError('unavailable')), \
-                patch.object(runner, 'call') as writer, \
-                patch.object(runner.secrets, 'token_urlsafe', return_value='test-fixture') as generate:
+                patch.object(runner, 'call') as writer:
             with self.assertRaises(RuntimeError):
                 runner.auth_credentials()
-            generate.assert_called_once()
-            writer.assert_called_once()
-
-    def test_iam_failure_does_not_generate_or_write(self):
-        with patch.object(runner, 'aws', side_effect=RuntimeError('access denied')), \
-                patch.object(runner, 'call') as writer, \
-                patch.object(runner.secrets, 'token_urlsafe') as generate:
-            with self.assertRaises(RuntimeError):
-                runner.auth_credentials()
-            generate.assert_not_called()
             writer.assert_not_called()
+        with patch.object(runner, 'aws', side_effect=RuntimeError('access denied')), \
+                patch.object(runner, 'call') as writer:
+            with self.assertRaises(RuntimeError):
+                runner.auth_credentials()
+            writer.assert_not_called()
+
+    def test_read_after_publication_must_match_input(self):
+        with patch.object(runner, 'aws', return_value={}), \
+                patch.object(runner, 'secret_value', return_value={'username': runner.AUTH_USERNAME, 'password': 'other'}), \
+                patch.object(runner, 'call') as writer:
+            with self.assertRaisesRegex(RuntimeError, 'divergem'):
+                runner.auth_credentials()
+            writer.assert_called_once()
 
 
 class SecretParsingTest(unittest.TestCase):
@@ -147,7 +151,8 @@ class JobPackagingTest(unittest.TestCase):
                 return json.dumps({'status': {'succeeded': 1}})
             return ''
 
-        with patch.dict(os.environ, EXPECTED_AWS_ACCOUNT_ID=account), \
+        with patch.dict(os.environ, EXPECTED_AWS_ACCOUNT_ID=account,
+                        DB_AUTH_USERNAME=runner.AUTH_USERNAME, DB_AUTH_PASSWORD='offline-auth-password-fixture'), \
                 patch.object(runner, 'aws', side_effect=lambda *args: fixtures[args[:2]]), \
                 patch.object(runner, 'call'), patch.object(runner, 'kube', side_effect=fake_kube) as kube, \
                 patch.object(runner, 'secret_value', side_effect=fake_secret), \
