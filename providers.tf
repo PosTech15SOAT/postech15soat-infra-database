@@ -5,3 +5,8 @@ provider "aws" {
     tags = local.common_tags
   }
 }
+
+provider "aws" {
+  alias  = "untagged"
+  region = var.aws_region
+}
