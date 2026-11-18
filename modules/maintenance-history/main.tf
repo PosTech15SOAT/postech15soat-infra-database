@@ -8,6 +8,15 @@ variable "tags" {
   description = "Tags compartilhadas do Database."
 }
 
+terraform {
+  required_providers {
+    aws = {
+      source                = "hashicorp/aws"
+      configuration_aliases = [aws.untagged]
+    }
+  }
+}
+
 resource "aws_dynamodb_table" "this" {
   name         = "${var.name_prefix}-vehicle-maintenance-history"
   billing_mode = "PAY_PER_REQUEST"
@@ -43,12 +52,13 @@ data "aws_iam_policy_document" "os_history" {
 }
 
 resource "aws_iam_policy" "os_history" {
+  provider    = aws.untagged
   name        = "${var.name_prefix}-os-maintenance-history"
   description = "Permite à identidade da OS projetar e consultar o histórico na tabela dedicada."
   policy      = data.aws_iam_policy_document.os_history.json
 
   lifecycle {
-    # A sessão AWS Academy não tem iam:TagPolicy para esta policy existente.
+    # Preserva tags que já possam existir nessa policy.
     ignore_changes = [tags_all]
   }
 }

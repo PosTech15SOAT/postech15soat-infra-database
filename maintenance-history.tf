@@ -1,6 +1,11 @@
 module "maintenance_history" {
   source = "./modules/maintenance-history"
 
+  providers = {
+    aws          = aws
+    aws.untagged = aws.untagged
+  }
+
   name_prefix = "${var.project_name}-${var.environment}"
   tags        = local.common_tags
 }
