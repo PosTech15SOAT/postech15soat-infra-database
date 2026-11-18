@@ -1,8 +1,15 @@
-> Fase 4: consulte [o procedimento atualizado](docs/phase4.md). Trechos anteriores podem descrever a Fase 3.
+> Fase 4: consulte [databases e secrets dos microsserviços](docs/phase4.md), [inicialização PostgreSQL](docs/postgresql-initialization.md) e a [arquitetura distribuída](https://github.com/PosTech15SOAT/postech15soat-infra-cloud/blob/develop/docs/architecture-fase4.md). As seções históricas abaixo ainda descrevem componentes da Fase 3.
 
 # NumberOne — Infraestrutura do Banco
 
-Infraestrutura como código do banco PostgreSQL do projeto **NumberOne**, desenvolvida para o Tech Challenge Fase 3 da FIAP.
+Infraestrutura como código da persistência do projeto **NumberOne**, desenvolvida para o Tech Challenge Fases 3 e 4 da FIAP.
+
+Na Fase 4, uma instância RDS hospeda os databases lógicos `numberone_os`,
+`numberone_billing`, `numberone_inventory` e `numberone_auth`, com roles e credenciais próprias.
+Este repositório também declara a tabela DynamoDB de histórico veicular usada
+pela OS. O workflow `Initialize PostgreSQL` prepara os bancos e as roles dos quatro contextos, incluindo o esquema e a role de leitura do Auth. As migrations Flyway de OS, Billing e Inventory continuam nos repositórios das aplicações. A implantação da
+infraestrutura não confirma, por si só, que a projeção de histórico esteja ativa
+no deploy da OS.
 
 Este repositório concentra o provisionamento do Amazon RDS PostgreSQL e a documentação relacionada à infraestrutura do banco. A aplicação principal, autenticação, rede base, EKS, API Gateway e governança permanecem em seus respectivos repositórios.
 
@@ -15,6 +22,9 @@ Responsabilidades deste repositório:
 - Security Group dedicado ao banco;
 - DB Parameter Group customizado;
 - senha master gerenciada pelo Amazon RDS no AWS Secrets Manager;
+- databases e roles separados para OS, Billing, Inventory e Auth;
+- secrets de conexão separados por serviço;
+- tabela DynamoDB para o histórico de revisões veiculares;
 - state Terraform próprio para banco;
 - remote state para consumir dados da infraestrutura cloud;
 - CI/CD Terraform com GitHub Actions;
@@ -25,17 +35,9 @@ A VPC, subnets, EKS, ECR e infraestrutura cloud base não são criados aqui. Ess
 
 ## 🏗️ Arquitetura
 
-Fluxo integrado da solução NumberOne:
-
-```text
-Cliente / Insomnia
-    -> API Gateway HTTP API
-    -> Lambda Authorizer
-    -> VPC Link
-    -> NLB interno
-    -> EKS / Spring Boot
-    -> RDS PostgreSQL
-```
+OS, Billing, Inventory e Auth acessam seus bancos lógicos no RDS. A OS projeta
+o histórico veicular no DynamoDB por meio da ponte HTTP prevista na
+[arquitetura da Fase 4](https://github.com/PosTech15SOAT/postech15soat-infra-cloud/blob/develop/docs/architecture-fase4.md).
 
 Escopo deste repositório dentro da arquitetura:
 
@@ -50,7 +52,9 @@ postech15soat-infra-database
     -> Security Group RDS
     -> DB Parameter Group
     -> Amazon RDS PostgreSQL
+    -> databases e roles OS / Billing / Inventory / Auth
     -> AWS Secrets Manager
+    -> DynamoDB de histórico veicular
 ```
 
 O diagrama de componentes específico do banco está em [docs/architecture/component-diagram.md](docs/architecture/component-diagram.md).
